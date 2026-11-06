@@ -21,8 +21,13 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    // Next.js development tooling uses eval for source maps and Fast Refresh.
+    // Keep that exception local-only; production retains the strict policy.
+    const scriptSource = process.env.NODE_ENV === 'development'
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self' 'unsafe-inline'";
     return [{ source: '/:path*', headers: [
-      { key: 'Content-Security-Policy', value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https://picsum.photos; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; font-src 'self' data:; upgrade-insecure-requests" },
+      { key: 'Content-Security-Policy', value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https://picsum.photos; style-src 'self' 'unsafe-inline'; ${scriptSource}; connect-src 'self' https://*.supabase.co; font-src 'self' data:; upgrade-insecure-requests` },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'X-Frame-Options', value: 'DENY' },

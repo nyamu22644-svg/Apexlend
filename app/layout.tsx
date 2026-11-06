@@ -15,6 +15,9 @@ export const metadata: Metadata = {
     description: 'Enterprise mobile-first lending platform for licensed Kenyan lending institutions.',
   },
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export const viewport: Viewport = {
