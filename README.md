@@ -1,20 +1,16 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# ApexLend
 
-# Run and deploy your AI Studio app
+Production lending operations platform built with Next.js and Supabase.
 
-This contains everything you need to run your app locally.
+## Local development
 
-View your app in AI Studio: https://ai.studio/apps/f6fa3c86-7ba4-4e9c-a2f9-33a405bcff54
+1. Install Node.js 22 or later.
+2. Run `npm ci`.
+3. Copy `.env.example` to `.env.local` and supply development-only values.
+4. Run `npm run dev`.
 
-## Run Locally
+## Verification
 
-**Prerequisites:**  Node.js
+Run `npm run lint`, `npm test`, and `npm run build` before deployment.
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Production configuration and secrets must be stored in Vercel and Supabase, never committed to this repository.
