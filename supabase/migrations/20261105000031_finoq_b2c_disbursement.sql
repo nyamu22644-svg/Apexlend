@@ -1,0 +1,22 @@
+insert into public.roles(institution_id,code,name,is_system) select i.id,x.code,x.name,true from public.institutions i cross join(values('credit_officer','Credit Officer'),('loan_approver','Loan Approver'),('disbursement_officer','Disbursement Officer'))x(code,name) on conflict(institution_id,code) do nothing;
+insert into public.role_permissions(role_id,institution_id,permission_code) select r.id,r.institution_id,x.permission_code from public.roles r join (values('credit_officer','application.read'),('credit_officer','application.assess'),('loan_approver','application.read'),('loan_approver','application.approve'),('disbursement_officer','disbursement.create'),('disbursement_officer','disbursement.approve'))x(role_code,permission_code) on r.code=x.role_code on conflict do nothing;
+insert into public.role_permissions(role_id,institution_id,permission_code) select id,institution_id,p.code from public.roles r cross join (values('disbursement.create'),('disbursement.approve'))p(code) where r.code='super_admin' on conflict do nothing;
+
+create or replace function public.submit_finoq_disbursement(p_disbursement_id uuid)
+returns table(payment_request_id uuid,external_reference text,amount numeric,destination_phone text) language plpgsql security definer set search_path=public,pg_temp as $$
+declare inst uuid:=public.current_institution_id(); did uuid; ref text; pid uuid; amt numeric; phone text;
+begin
+ if not public.has_permission('disbursement.create') then raise exception 'permission denied'; end if;
+ select d.id,d.amount,d.destination_phone into did,amt,phone from public.disbursement_requests d where d.id=p_disbursement_id and d.institution_id=inst and d.status='approved' for update; if did is null then raise exception 'approved disbursement unavailable'; end if;
+ ref:='B2C-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,16)); insert into public.payment_requests(institution_id,loan_account_id,request_type,amount,destination_reference,idempotency_key,status,provider_reference) select inst,d.loan_account_id,'b2c_disbursement',amt,phone,gen_random_uuid(),'routing',ref from public.disbursement_requests d where d.id=did returning id into pid;
+ insert into public.disbursement_attempts(institution_id,disbursement_request_id,payment_request_id,sequence_number,status) values(inst,did,pid,(select count(*)+1 from public.disbursement_attempts where disbursement_request_id=did),'created'); update public.disbursement_requests set status='submitted' where id=did; return query select pid,ref,amt,phone;
+end $$;
+create or replace function public.process_finoq_disbursement(p_external_reference text,p_provider_reference text,p_success boolean,p_amount numeric,p_payload jsonb)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare pr record; did uuid;
+begin
+ select * into pr from public.payment_requests where provider_reference=p_external_reference and request_type='b2c_disbursement' for update; if pr.id is null or pr.amount<>p_amount then raise exception 'disbursement callback unavailable'; end if;
+ select disbursement_request_id into did from public.disbursement_attempts where payment_request_id=pr.id; update public.payment_requests set status=case when p_success then 'completed' else 'failed' end,updated_at=now() where id=pr.id; update public.disbursement_attempts set status=case when p_success then 'completed' else 'failed' end,provider_response=p_payload where payment_request_id=pr.id; update public.disbursement_requests set status=case when p_success then 'completed' else 'failed' end where id=did; if p_success then update public.loan_accounts set status='active' where id=pr.loan_account_id and status='pending_disbursement'; insert into public.customer_notifications(institution_id,customer_profile_id,title,message,notification_type) select pr.institution_id,l.customer_profile_id,'Loan disbursed','Your loan of KES '||pr.amount||' has been disbursed to your M-Pesa line.','success' from public.loan_accounts l where l.id=pr.loan_account_id; end if;
+end $$;
+revoke all on function public.submit_finoq_disbursement(uuid) from public; grant execute on function public.submit_finoq_disbursement(uuid) to authenticated;
+revoke all on function public.process_finoq_disbursement(text,text,boolean,numeric,jsonb) from public; grant execute on function public.process_finoq_disbursement(text,text,boolean,numeric,jsonb) to service_role;

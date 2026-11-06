@@ -1,0 +1,6 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/server/supabase';
+function token(request: NextRequest) { const value = request.headers.get('authorization'); return value?.startsWith('Bearer ') ? value.slice(7) : ''; }
+export async function POST(request: NextRequest) {
+  try { const accessToken = token(request); if (!accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const body = await request.json(); const { client } = await requireAuthenticatedUser(accessToken); const { data, error } = await client.rpc('recommend_loan_application', { p_application_id: body.applicationId, p_score: body.score ?? null, p_debt_service_ratio: body.dsti ?? null, p_findings: body.findings || {}, p_decision: body.decision, p_proposed_amount: body.proposedAmount ?? null, p_proposed_term_months: body.proposedTermMonths ?? null, p_rationale: body.rationale, p_idempotency_key: body.idempotencyKey }); if (error) return NextResponse.json({ error: error.message }, { status: 422 }); return NextResponse.json({ approvalRequestId: data }); } catch { return NextResponse.json({ error: 'Unable to save underwriting recommendation' }, { status: 500 }); }
+}

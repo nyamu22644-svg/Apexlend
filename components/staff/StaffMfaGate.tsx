@@ -1,0 +1,17 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+
+export function StaffMfaGate({ children }: { children: React.ReactNode }) {
+  const { profile, signOut } = useAuth();
+  const [ready, setReady] = useState(false), [loading, setLoading] = useState(true), [factorId, setFactorId] = useState(''), [qrCode, setQrCode] = useState(''), [code, setCode] = useState(''), [error, setError] = useState('');
+  useEffect(() => { if (profile?.userType !== 'staff') return; Promise.all([supabase.auth.mfa.getAuthenticatorAssuranceLevel(), supabase.auth.mfa.listFactors()]).then(([level, factors]) => { if (level.error || factors.error) setError('Unable to check multi-factor authentication status.'); else { setReady(level.data.currentLevel === 'aal2'); const existing = factors.data.totp.find((factor) => factor.status === 'verified'); if (existing) setFactorId(existing.id); } setLoading(false); }); }, [profile?.userType]);
+  const beginEnrollment = async () => { setError(''); const { data, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Staff authenticator' }); if (enrollError || !data) return setError(enrollError?.message || 'Unable to start authenticator setup.'); setFactorId(data.id); setQrCode(data.totp.qr_code); };
+  const verify = async (event: React.FormEvent) => { event.preventDefault(); setError(''); if (!factorId || !/^\d{6}$/.test(code)) return setError('Enter the six-digit code from your authenticator app.'); const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId }); if (challengeError || !challenge) return setError(challengeError?.message || 'Unable to create verification challenge.'); const { error: verifyError } = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.id, code }); if (verifyError) return setError(verifyError.message); await supabase.auth.refreshSession(); setReady(true); };
+  if (ready) return <>{children}</>;
+  if (loading) return <div className="p-10 text-center text-sm text-slate-500">Checking staff security requirements…</div>;
+  return <div className="max-w-md mx-auto my-10 bg-white border border-slate-200 rounded-2xl p-6 space-y-4"><div className="flex items-center gap-3"><ShieldCheck className="text-[#167D78]" /><div><h1 className="font-bold">Staff multi-factor authentication</h1><p className="text-xs text-slate-500">An authenticator-app code is required before staff access is granted.</p></div></div>{!factorId ? <button onClick={beginEnrollment} className="w-full rounded-xl bg-[#101C2C] text-white py-3 text-sm font-semibold">Set up authenticator app</button> : <form onSubmit={verify} className="space-y-3">{qrCode && <img src={qrCode} width="220" height="220" className="mx-auto" alt="Scan this QR code with an authenticator app" />}<label className="block text-xs font-semibold">Six-digit verification code<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} className="mt-1 w-full rounded-lg border p-3 text-center tracking-[0.4em]" /></label><button className="w-full rounded-xl bg-[#167D78] text-white py-3 text-sm font-semibold">Verify and continue</button></form>}{error && <p className="text-xs text-rose-700">{error}</p>}<button onClick={() => void signOut()} className="w-full text-xs text-slate-500 underline">Sign out</button></div>;
+}

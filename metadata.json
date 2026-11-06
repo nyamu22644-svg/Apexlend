@@ -1,0 +1,6 @@
+{
+  "name": "Configurable Lending Management Platform",
+  "description": "Mobile-first, white-label digital lending platform for licensed Kenyan financial institutions featuring customer PWA and staff operations console.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

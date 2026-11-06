@@ -1,0 +1,10 @@
+-- Safe customer read model for the existing Loans screen.
+create or replace function public.get_my_loans_workspace()
+returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
+  select jsonb_build_object(
+    'loans',coalesce((select jsonb_agg(jsonb_build_object('id',l.id,'loan_number',l.account_number,'status',l.status,'product_name',p.name,'principal',l.principal_outstanding,'interest',l.interest_outstanding,'fees',l.fee_outstanding,'contract_terms',c.terms,'contract_accepted_at',c.accepted_at,'installments',coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'number',i.installment_number,'due_date',i.due_date,'principal_due',i.principal_due,'interest_due',i.interest_due,'fee_due',i.fee_due,'status',i.status) order by i.installment_number) from public.repayment_installments i where i.loan_account_id=l.id and i.institution_id=l.institution_id),'[]'::jsonb)) order by l.created_at desc) from public.loan_accounts l join public.loan_contract_snapshots c on c.loan_account_id=l.id and c.institution_id=l.institution_id join public.loan_product_versions v on v.id=c.product_version_id and v.institution_id=c.institution_id join public.loan_products p on p.id=v.product_id and p.institution_id=v.institution_id where l.customer_profile_id=auth.uid() and l.institution_id=public.current_institution_id()),'[]'::jsonb),
+    'applications',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'application_number',a.application_number,'status',a.status,'product_name',p.name,'requested_amount',a.requested_amount,'term_months',a.requested_term_months,'purpose',a.loan_purpose,'submitted_at',a.submitted_at) order by a.submitted_at desc) from public.loan_applications a join public.loan_product_versions v on v.id=a.product_version_id and v.institution_id=a.institution_id join public.loan_products p on p.id=v.product_id and p.institution_id=v.institution_id where a.customer_profile_id=auth.uid() and a.institution_id=public.current_institution_id()),'[]'::jsonb)
+  );
+$$;
+revoke all on function public.get_my_loans_workspace() from public;
+grant execute on function public.get_my_loans_workspace() to authenticated;

@@ -1,0 +1,4 @@
+create or replace function public.get_collection_assignment_staff()
+returns table(profile_id uuid,full_name text,role_code text) language sql stable security definer set search_path=public,pg_temp as $$
+ select s.profile_id,p.full_name,coalesce(r.code,'staff') from public.staff_members s join public.profiles p on p.id=s.profile_id and p.institution_id=s.institution_id left join public.staff_role_assignments a on a.staff_profile_id=s.profile_id and a.institution_id=s.institution_id and a.revoked_at is null left join public.roles r on r.id=a.role_id where s.institution_id=public.current_institution_id() and s.is_active and public.has_permission('collections.manage') order by p.full_name $$;
+revoke all on function public.get_collection_assignment_staff() from public;grant execute on function public.get_collection_assignment_staff() to authenticated;

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#101C2C" />
+  <!-- Left Teal Ribbon -->
+  <path d="M 28 68 L 44 26 L 56 26 L 40 68 Z" fill="#167D78" rx="3" />
+  <!-- Right Muted Gold Ribbon -->
+  <path d="M 48 68 L 64 26 L 76 26 L 60 68 Z" fill="#D6A85F" rx="3" />
+</svg>
