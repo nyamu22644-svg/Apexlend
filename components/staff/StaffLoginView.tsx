@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useBrand } from '@/lib/brand-context';
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { goToPortal } from '@/lib/portal-domains';
+import { getPortalForCurrentHost } from '@/lib/portal-domains';
 import {
   Lock,
   Mail,
@@ -18,6 +20,7 @@ import {
 export function StaffLoginView({ onSuccess }: { onSuccess?: () => void }) {
   const { signInStaff, error: authError, clearError, isConfigured } = useAuth();
   const { brand, setActivePortal } = useBrand();
+  const productionStaffHost = getPortalForCurrentHost() === 'staff';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -170,15 +173,15 @@ export function StaffLoginView({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
-        <div className="text-center pt-2">
+        {!productionStaffHost && <div className="text-center pt-2">
           <button
             type="button"
-            onClick={() => setActivePortal('customer')}
+            onClick={() => goToPortal('customer', () => setActivePortal('customer'))}
             className="text-xs text-slate-500 hover:text-[#167D78] font-semibold transition-colors cursor-pointer"
           >
             ← Switch to Customer Portal
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );

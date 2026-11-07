@@ -4,6 +4,7 @@ import React from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useBrand } from '@/lib/brand-context';
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { goToPortal, getPortalForCurrentHost } from '@/lib/portal-domains';
 import { ShieldAlert, Lock, AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -21,6 +22,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { profile, session, isLoading, isConfigured } = useAuth();
   const { brand, setActivePortal } = useBrand();
+  const productionPortalHost = getPortalForCurrentHost();
 
   // 1. Session Loading State
   if (isLoading) {
@@ -97,15 +99,15 @@ export function ProtectedRoute({
               Staff accounts must be created and granted by your institution administrator. Modifying client metadata or URL parameters does not grant operational access.
             </p>
           </div>
-          <div className="pt-2 flex justify-center gap-3">
+          {productionPortalHost !== 'staff' && <div className="pt-2 flex justify-center gap-3">
             <button
-              onClick={() => setActivePortal('customer')}
+              onClick={() => goToPortal('customer', () => setActivePortal('customer'))}
               className="px-4 py-2 bg-[#167D78] text-white rounded-xl text-xs font-semibold hover:bg-[#12635F] transition-colors flex items-center gap-2 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Return to Customer Portal
             </button>
-          </div>
+          </div>}
         </div>
       );
     }

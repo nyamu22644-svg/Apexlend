@@ -18,12 +18,13 @@ Deno.serve(async (request) => {
     const { data: notification } = await admin.from('customer_notifications').select('id,customer_profile_id,title,message,action_path,action_label').eq('id', notificationId).maybeSingle();
     if (!notification) return json({ error: 'Notification not found' }, 404);
     if (!internal && notification.customer_profile_id !== user!.id) {
-      const [{ data: complaintManager }, { data: closureManager }, { data: applicationApprover }] = await Promise.all([
+      const [{ data: complaintManager }, { data: closureManager }, { data: applicationApprover }, { data: staffManager }] = await Promise.all([
         userClient.rpc('has_permission', { required_permission: 'complaint.manage' }),
         userClient.rpc('has_permission', { required_permission: 'account_closure.manage' }),
         userClient.rpc('has_permission', { required_permission: 'application.approve' }),
+        userClient.rpc('has_permission', { required_permission: 'staff.manage' }),
       ]);
-      if (complaintManager !== true && closureManager !== true && applicationApprover !== true) return json({ error: 'Notification not found' }, 404);
+      if (complaintManager !== true && closureManager !== true && applicationApprover !== true && staffManager !== true) return json({ error: 'Notification not found' }, 404);
     }
     // For a customer-triggered send this is the caller; for an authorised staff
     // decision it must always remain the customer who owns the notification.

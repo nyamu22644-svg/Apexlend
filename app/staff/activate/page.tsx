@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { goToPortal } from '@/lib/portal-domains';
 
 export default function StaffActivationPage() {
   const [ready, setReady] = useState(false);
@@ -30,7 +31,7 @@ export default function StaffActivationPage() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) return setMessage(error.message);
     setMessage('Password created. You can now sign in to the staff portal.');
-    window.setTimeout(() => { window.location.assign('/'); }, 1000);
+    window.setTimeout(() => { goToPortal('staff', () => window.location.assign('/')); }, 1000);
   };
 
   return <main className="min-h-screen grid place-items-center p-4 bg-[#F5F7FA]"><form onSubmit={submit} className="w-full max-w-md rounded-2xl bg-white border p-7 space-y-4 shadow-sm"><div><h1 className="text-xl font-bold">Activate staff account</h1><p className="mt-1 text-sm text-slate-600">{message}</p></div>{ready && <><label className="block text-sm font-medium">New password<input required type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border p-2.5" /></label><label className="block text-sm font-medium">Confirm password<input required type="password" autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} className="mt-1 w-full rounded-lg border p-2.5" /></label><button className="w-full rounded-lg bg-[#167D78] py-2.5 text-sm font-bold text-white">Set password and continue</button></>}</form></main>;

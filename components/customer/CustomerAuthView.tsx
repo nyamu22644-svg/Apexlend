@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useBrand } from '@/lib/brand-context';
 import { useAuth } from '@/lib/auth-context';
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { MIN_PASSWORD_LENGTH, PASSWORD_REQUIREMENTS, getPasswordRequirementChecks, passwordMeetsRequirements } from '@/lib/password-policy';
 import {
   Mail,
   Lock,
@@ -57,6 +58,7 @@ export function CustomerAuthView() {
   const [cooldown, setCooldown] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordRequirementChecks = getPasswordRequirementChecks(password);
 
   // Cooldown timer
   useEffect(() => {
@@ -110,8 +112,8 @@ export function CustomerAuthView() {
       setErrorMessage('Please enter a valid email address');
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters');
+    if (!passwordMeetsRequirements(password)) {
+      setErrorMessage(`Password must be at least ${MIN_PASSWORD_LENGTH} characters and include uppercase, lowercase, a number, and a special character`);
       return;
     }
     if (password !== confirmPassword) {
@@ -127,7 +129,20 @@ export function CustomerAuthView() {
     try {
       const res = await signUpCustomer(email, password, fullName);
       if (res.success) {
-        if (!isConfigured) registerCustomer(fullName, email);
+        const registrationEmail = email.trim().toLowerCase();
+        if (!isConfigured) {
+          registerCustomer(fullName, registrationEmail);
+        } else {
+          // Keep the confirmation view tied to the account just created, rather
+          // than to the BrandContext's demo customer.
+          setAuthSession({
+            isAuthenticated: false,
+            email: registrationEmail,
+            fullName: fullName.trim(),
+            emailConfirmed: false,
+            authView: 'verify-email',
+          });
+        }
         setCooldown(30);
         setMode('verify-email');
       } else {
@@ -168,7 +183,7 @@ export function CustomerAuthView() {
     setIsSubmitting(true);
     try {
       await resendSupabaseOtp(email);
-      await resendVerificationEmail();
+      if (!isConfigured) await resendVerificationEmail();
       setCooldown(30);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to resend confirmation email');
@@ -245,8 +260,8 @@ export function CustomerAuthView() {
         </span>
       </div>
 
-      {/* Dev Mode Persona Switcher Banner */}
-      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 flex items-center justify-between">
+      {/* Demo personas are available only when Supabase authentication is not configured. */}
+      {!isConfigured && <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 flex items-center justify-between">
         <span className="font-semibold text-slate-600">Quick Test:</span>
         <div className="flex gap-1.5">
           <button
@@ -264,7 +279,7 @@ export function CustomerAuthView() {
             Brian (New 20%)
           </button>
         </div>
-      </div>
+      </div>}
 
       {errorMessage && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
@@ -409,7 +424,10 @@ export function CustomerAuthView() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 6 chars"
+                  minLength={MIN_PASSWORD_LENGTH}
+                  required
+                  aria-describedby="registration-password-requirements"
+                  placeholder="Create password"
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#167D78]"
                 />
               </div>
@@ -419,11 +437,23 @@ export function CustomerAuthView() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  required
                   placeholder="Repeat password"
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#167D78]"
                 />
               </div>
             </div>
+            <ul id="registration-password-requirements" className="-mt-2 space-y-1 text-[11px]" aria-live="polite">
+              {PASSWORD_REQUIREMENTS.map((requirement) => {
+                const met = passwordRequirementChecks[requirement.key];
+                return (
+                  <li key={requirement.key} className={met ? 'text-emerald-700' : 'text-slate-500'}>
+                    <span aria-hidden="true">{met ? '✓' : '○'}</span>{' '}{requirement.label}
+                  </li>
+                );
+              })}
+            </ul>
 
             <div className="pt-1">
               <label className="flex items-start gap-2 cursor-pointer text-xs">
@@ -480,7 +510,7 @@ export function CustomerAuthView() {
             </div>
             <h3 className="text-lg font-bold text-[#101C2C]">Check your email</h3>
             <p className="text-xs text-slate-500">
-              {isConfigured ? 'Open the confirmation link sent to ' : 'We sent a verification code to '}<span className="font-semibold text-slate-800">{authSession.email || email}</span>{isConfigured ? '. This page will continue automatically after confirmation.' : '.'}
+              {isConfigured ? 'Open the confirmation link sent to ' : 'We sent a verification code to '}<span className="font-semibold text-slate-800">{email || authSession.email}</span>{isConfigured ? '. This page will continue automatically after confirmation.' : '.'}
             </p>
           </div>
 

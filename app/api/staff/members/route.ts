@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
     const value = token(request); if (!value) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await request.json(); const { client } = await requireAuthenticatedUser(value);
     const access = await client.rpc('has_permission', { required_permission: 'staff.manage' }); if (access.data !== true) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    const redirectTo = `${request.nextUrl.origin}/staff/activate`; const admin = createAdminClient();
+    // Invitations always land on the staff hostname, even if an administrator
+    // is working from a preview or customer hostname.
+    const staffPortalUrl = process.env.NEXT_PUBLIC_STAFF_PORTAL_URL?.replace(/\/+$/, '');
+    const redirectTo = `${staffPortalUrl || request.nextUrl.origin}/staff/activate`; const admin = createAdminClient();
     if (body.action === 'resend') {
       const { data: staff, error } = await client.rpc('get_staff_directory');
       const member = !error && (staff || []).find((item: { profile_id: string }) => item.profile_id === body.profileId);

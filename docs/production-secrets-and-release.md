@@ -4,7 +4,9 @@
 
 Set these for **Production** only (and separately for Preview if it needs a staging backend):
 
-- `APP_URL`: the exact HTTPS production URL, for example `https://app.example.co.ke`.
+- `APP_URL`: the exact HTTPS production URL, for example `https://customer.example.co.ke`.
+- `NEXT_PUBLIC_CUSTOMER_PORTAL_URL`: the customer portal URL, for example `https://customer.example.co.ke`.
+- `NEXT_PUBLIC_STAFF_PORTAL_URL`: the staff-only URL, for example `https://staff.example.co.ke`.
 - `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY`.
 - `KYC_PII_ENCRYPTION_KEY`: generate a new random value of at least 32 bytes. This is a Vercel-only server secret because KYC encryption happens in Next.js API routes.
 - `KYC_PII_HASH_PEPPER`: a distinct random value of at least 32 bytes.
@@ -59,7 +61,11 @@ In Supabase Auth, enable TOTP MFA, set a 12-character password minimum with uppe
 
 ### Supabase Auth production configuration
 
-In **Supabase Dashboard → Authentication → URL Configuration** set **Site URL** to the exact production Vercel URL, such as `https://app.example.co.ke`. Add that exact URL and `https://app.example.co.ke/staff/activate` under **Redirect URLs**. Add preview URLs only to the staging project, not production.
+In **Supabase Dashboard → Authentication → URL Configuration** set **Site URL** to the customer portal URL, such as `https://customer.example.co.ke`. Add `https://customer.example.co.ke/**`, `https://staff.example.co.ke/**`, and specifically `https://staff.example.co.ke/staff/activate` under **Redirect URLs**. Add preview URLs only to the staging project, not production.
+
+## Portal domain topology
+
+Reserve `lending.com` for the future public website. Point `customer.lending.com` and `staff.lending.com` to this application deployment. The portal selector navigates between those canonical URLs; it is only an in-app preview switch on localhost. Customer and staff browser sessions remain separated by origin, while server-side role checks remain the authority for access control.
 
 In **Authentication → Providers → Email**, configure a verified production SMTP sender and enable email confirmations for customer accounts. In **Authentication → MFA**, enable TOTP enrollment and verification. Staff will sign in with password, enroll once by scanning the in-app QR code, then enter an authenticator-app code before any staff permission works. Email OTP is suitable for email confirmation and recovery but is not used as the staff second factor.
 

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured, getSupabaseConfigStatus } from './supabase/client';
 import { UserRole } from './types/lending';
+import { MIN_PASSWORD_LENGTH, passwordMeetsRequirements } from './password-policy';
 
 export interface UserProfile {
   id: string;
@@ -201,13 +202,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     phoneNumber?: string
   ) => {
     setError(null);
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
       setError('Email and password are required');
       return { success: false, error: 'Email and password are required' };
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return { success: false, error: 'Password must be at least 6 characters' };
+    if (!passwordMeetsRequirements(password)) {
+      const msg = `Password must be at least ${MIN_PASSWORD_LENGTH} characters and include uppercase, lowercase, a number, and a special character`;
+      setError(msg);
+      return { success: false, error: msg };
     }
 
     if (!isConfigured) {
@@ -216,7 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: `usr-${Date.now()}`,
         institutionId: '00000000-0000-0000-0000-000000000001',
         userType: 'customer',
-        email,
+        email: normalizedEmail,
         fullName,
         phoneNumber,
         isSuspended: false,
@@ -244,8 +247,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (signUpErr) {
         // Detect duplicate account
         if (
-          signUpErr.message.toLowerCase().includes('already registered') ||
-          signUpErr.status === 422
+          signUpErr.code === 'user_already_exists' ||
+          /(?:user|account) (?:is )?already (?:registered|exists)/i.test(signUpErr.message)
         ) {
           const msg = 'An account with this email address already exists. Please log in instead.';
           setError(msg);
@@ -259,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.user) {
         setUser(data.user);
         setSession(data.session);
-        const p = await fetchProfile(data.user.id, data.user.email ?? email);
+        const p = await fetchProfile(data.user.id, data.user.email ?? normalizedEmail);
         setProfile(p);
       }
 
@@ -504,8 +507,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Update Password
   const updatePassword = async (newPassword: string) => {
     setError(null);
-    if (newPassword.length < 6) {
-      const msg = 'Password must be at least 6 characters';
+    if (!passwordMeetsRequirements(newPassword)) {
+      const msg = `Password must be at least ${MIN_PASSWORD_LENGTH} characters and include uppercase, lowercase, a number, and a special character`;
       setError(msg);
       return { success: false, error: msg };
     }

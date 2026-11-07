@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { Modal } from './shared/Modal';
 import { SQL_MIGRATION_1, SQL_MIGRATION_2 } from '@/lib/supabase/migrations-sql';
+import { getPortalForCurrentHost, goToPortal } from '@/lib/portal-domains';
 
 export function AppShell() {
   const {
@@ -55,6 +56,7 @@ export function AppShell() {
   const [referenceTab, setReferenceTab] = useState<'kyc' | 'dashboard'>('kyc');
   const [supabaseModalTab, setSupabaseModalTab] = useState<'config' | 'migration1' | 'migration2'>('config');
   const [copiedSql, setCopiedSql] = useState<string | null>(null);
+  const [portalHost, setPortalHost] = useState<ReturnType<typeof getPortalForCurrentHost>>(null);
   const supabaseStatus = getSupabaseConfigStatus();
 
   useEffect(() => {
@@ -63,6 +65,14 @@ export function AppShell() {
       setCustomerView('loans');
     }
   }, [setActivePortal, setCustomerView]);
+
+  // A configured production subdomain selects its portal on first load. This
+  // remains a no-op on localhost, where the visual switcher is useful for QA.
+  useEffect(() => {
+    const portalForHost = getPortalForCurrentHost();
+    setPortalHost(portalForHost);
+    if (portalForHost) setActivePortal(portalForHost);
+  }, [setActivePortal]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -92,9 +102,9 @@ export function AppShell() {
           </div>
 
           {/* Center: Portal Mode Switcher (Customer PWA vs Staff Operations) */}
-          <div className="flex items-center p-1 bg-slate-900 rounded-xl border border-slate-800">
+          {!portalHost && <div className="flex items-center p-1 bg-slate-900 rounded-xl border border-slate-800">
             <button
-              onClick={() => setActivePortal('customer')}
+              onClick={() => goToPortal('customer', () => setActivePortal('customer'))}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activePortal === 'customer'
                   ? 'bg-[#167D78] text-white shadow-xs'
@@ -106,7 +116,7 @@ export function AppShell() {
             </button>
 
             <button
-              onClick={() => setActivePortal('staff')}
+              onClick={() => goToPortal('staff', () => setActivePortal('staff'))}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activePortal === 'staff'
                   ? 'bg-[#167D78] text-white shadow-xs'
@@ -116,7 +126,7 @@ export function AppShell() {
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span>Staff Operations</span>
             </button>
-          </div>
+          </div>}
 
           {/* Right: Persona Testing, White-Label Selector & Reference Spec Viewer */}
           <div className="flex items-center gap-2">
@@ -162,7 +172,7 @@ export function AppShell() {
             )}
 
             {/* Toggle Phone Frame Mockup vs Responsive Width */}
-            {activePortal === 'customer' && (
+            {!portalHost && activePortal === 'customer' && (
               <button
                 onClick={() => setPreviewDeviceFrame(!previewDeviceFrame)}
                 className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
@@ -178,7 +188,7 @@ export function AppShell() {
             )}
 
             {/* White-label Switcher Dropdown */}
-            <div className="relative">
+            {!portalHost && <div className="relative">
               <button
                 onClick={() => setShowBrandMenu(!showBrandMenu)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors cursor-pointer"
@@ -222,10 +232,10 @@ export function AppShell() {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Supabase Status Pill */}
-            <button
+            {!portalHost && <button
               onClick={() => setShowSupabaseModal(true)}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isConfigured
@@ -239,17 +249,17 @@ export function AppShell() {
                 {isConfigured ? 'Supabase Live' : 'Supabase Config'}
               </span>
               <span className={`w-1.5 h-1.5 rounded-full ${isConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            </button>
+            </button>}
 
             {/* View Attached Reference Specs Button */}
-            <button
+            {!portalHost && <button
               onClick={() => setShowReferenceModal(true)}
               className="px-2.5 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700/80 flex items-center gap-1 cursor-pointer"
               title="View Authoritative Design Specification Images"
             >
               <Eye className="w-3.5 h-3.5 text-[#167D78]" />
               <span className="hidden sm:inline">Design Specs</span>
-            </button>
+            </button>}
           </div>
         </div>
       </header>
@@ -267,41 +277,6 @@ export function AppShell() {
           </ProtectedRoute>
         )}
       </main>
-
-      {/* Institutional Bottom Banner (Exact match to reference image footer) */}
-      <footer className="bg-[#101C2C] text-white border-t border-slate-800 py-3.5 px-4 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-5 bg-[#167D78] rounded-full" />
-            <span className="font-bold tracking-tight text-sm">
-              A complete, configurable lending platform for Kenya
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-slate-300 flex-wrap justify-center text-[11px]">
-            <span className="inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#167D78]" />
-              <span>All Loan Types</span>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#167D78]" />
-              <span>Flexible Interest Rates</span>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#167D78]" />
-              <span>M-Pesa Integration</span>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#167D78]" />
-              <span>Real-time Insights</span>
-            </span>
-          </div>
-
-          <div className="px-3 py-1 bg-[#D6A85F] text-[#101C2C] font-extrabold rounded-lg text-xs">
-            Built for Growth
-          </div>
-        </div>
-      </footer>
 
       {/* Design Reference Inspection Modal (Showing both specs) */}
       <Modal
